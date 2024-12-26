@@ -11,6 +11,12 @@
         <content type="html"><![CDATA[<h1 id="一个简单JAVA程序"><a href="#一个简单JAVA程序" class="headerlink" title="一个简单JAVA程序"></a>一个简单JAVA程序</h1><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">helloworld</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;Hello world!!!&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
       
       
+      <categories>
+          
+          <category> 程序 </category>
+          
+      </categories>
+      
       
         <tags>
             

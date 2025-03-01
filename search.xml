@@ -4,6 +4,35 @@
   
     
     <entry>
+      <title>整合openfeign和seata出现的Bug2025.2.28</title>
+      <link href="/2025/03/01/Bug2025-2-28/"/>
+      <url>/2025/03/01/Bug2025-2-28/</url>
+      
+        <content type="html"><![CDATA[<h1 id="2025-2-28Bug"><a href="#2025-2-28Bug" class="headerlink" title="2025.2.28Bug"></a>2025.2.28Bug</h1><h2 id="Bug1-已解决"><a href="#Bug1-已解决" class="headerlink" title="Bug1(已解决)"></a>Bug1(已解决)</h2><p><strong>起始：</strong>启动服务时不能与seata-server建立连接，发现是application.yml的seata事物组tx_service_group配置错误（与seata-server的file.conf的tx_service_group不一致）<br><strong>解决方法：</strong>改成一样就好了</p><figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">alibaba:</span></span><br><span class="line">      <span class="attr">seata:</span></span><br><span class="line"><span class="comment">#指定事务组名称 ， 与seata-server对应/conf/file.conf</span></span><br><span class="line">        <span class="attr">tx-service-group:</span> <span class="string">cbh_order_tx_group</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">discovery:</span></span><br><span class="line">        <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br></pre></td></tr></table></figure><figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="string">service</span> &#123;</span><br><span class="line">  <span class="comment">#vgroup-&gt;rgroup</span></span><br><span class="line">  <span class="string">vgroup_mapping.cbh_order_tx_group</span> <span class="string">=</span> <span class="string">&quot;default&quot;</span></span><br><span class="line">  <span class="comment">#only support single node</span></span><br><span class="line">  <span class="string">default.grouplist</span> <span class="string">=</span> <span class="string">&quot;127.0.0.1:8091&quot;</span></span><br><span class="line">  <span class="comment">#degrade current not support</span></span><br><span class="line">  <span class="string">enableDegrade</span> <span class="string">=</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment">#disable</span></span><br><span class="line">  <span class="string">disable</span> <span class="string">=</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment">#unit ms,s,m,h,d represents milliseconds, seconds, minutes, hours, days, default permanent</span></span><br><span class="line">  <span class="string">max.commit.retry.timeout</span> <span class="string">=</span> <span class="string">&quot;-1&quot;</span></span><br><span class="line">  <span class="string">max.rollback.retry.timeout</span> <span class="string">=</span> <span class="string">&quot;-1&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h2 id="Bug2（已解决）"><a href="#Bug2（已解决）" class="headerlink" title="Bug2（已解决）"></a>Bug2（已解决）</h2><p>起始：使用<code>@GlobalTransactional</code>做全局事务控制的时候发现seata的日志虽然显示全局事务被回滚（<code>rollback status:Rollbacked</code>）  ，但是数据库的数据仍然被修改了，找了老半天结果发现是seata代理数据源的配置类忘记加上<code>@Configuration</code>注解了，配置没有生效，而且注入<code>mapperLocations</code>的注解还写错了，导致启动一直失败。。。。</p><p><img src="https://ts1.cn.mm.bing.net/th?id=OIP-C.75ZfUwR5O7r3uoSDrcxAtwHaHG&w=255&h=244&c=8&rs=1&qlt=90&r=0&o=6&dpr=1.5&pid=3.1&rm=2"></p><p>解决方法：给seata代理数据源的配置类加上<code>@Configuration</code>注解和修改注入<code>mapperLocations</code>的注解</p><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DataSourceProxyConfig</span> &#123;</span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;mybatis.mapper-locations&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String mapperLocation;</span><br><span class="line">    <span class="comment">//配置durid数据池</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="meta">@ConfigurationProperties(prefix = &quot;spring.datasource&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> DataSource <span class="title function_">druidDatasource</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DruidDataSource</span>();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//配置datasourceproxy使用seata代理数据源</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> DataSourceProxy <span class="title function_">dataSourceProxy</span><span class="params">(DataSource dataSource)</span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">DataSourceProxy</span>(dataSource);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//配置sqlsessionfactory</span></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> SqlSessionFactory <span class="title function_">sqlSessionFactoryBean</span><span class="params">(DataSourceProxy dataSourceProxy)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">SqlSessionFactoryBean</span> <span class="variable">sqlSessionFactoryBean</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SqlSessionFactoryBean</span>();</span><br><span class="line">        sqlSessionFactoryBean.setDataSource(dataSourceProxy);</span><br><span class="line">        sqlSessionFactoryBean.setMapperLocations(<span class="keyword">new</span> <span class="title class_">PathMatchingResourcePatternResolver</span>().getResources(mapperLocation));</span><br><span class="line">        sqlSessionFactoryBean.setTransactionFactory(<span class="keyword">new</span> <span class="title class_">SpringManagedTransactionFactory</span>());</span><br><span class="line">        <span class="keyword">return</span> sqlSessionFactoryBean.getObject();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
+      
+      
+      <categories>
+          
+          <category> 编程日志 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> JAVA </tag>
+            
+            <tag> Bug </tag>
+            
+            <tag> Seata </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>启动seata-server出现的Bug2025.2.27</title>
       <link href="/2025/02/28/Bug2025-2-27/"/>
       <url>/2025/02/28/Bug2025-2-27/</url>
@@ -23,6 +52,8 @@
             <tag> JAVA </tag>
             
             <tag> Bug </tag>
+            
+            <tag> Seata </tag>
             
         </tags>
       

@@ -4,6 +4,33 @@
   
     
     <entry>
+      <title>Bug2025.3.5</title>
+      <link href="/2025/03/05/Bug2025-3-5/"/>
+      <url>/2025/03/05/Bug2025-3-5/</url>
+      
+        <content type="html"><![CDATA[<h1 id="搭建keepalived-nginx集群出现的一些bug"><a href="#搭建keepalived-nginx集群出现的一些bug" class="headerlink" title="搭建keepalived+nginx集群出现的一些bug"></a>搭建keepalived+nginx集群出现的一些bug</h1><h2 id="BUG1"><a href="#BUG1" class="headerlink" title="BUG1"></a>BUG1</h2><p>起始：ping不到keepalived的虚拟IP</p><p>解决方法：注释掉keepalived.conf的vrrp_strict</p><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">global_defs &#123;</span><br><span class="line">   notification_email &#123;</span><br><span class="line">     acassen@firewall.loc</span><br><span class="line">     failover@firewall.loc</span><br><span class="line">     sysadmin@firewall.loc</span><br><span class="line">   &#125;</span><br><span class="line">   notification_email_from Alexandre.Cassen@firewall.loc</span><br><span class="line">   smtp_server 192.168.200.1</span><br><span class="line">   smtp_connect_timeout 30</span><br><span class="line">   router_id cbh100</span><br><span class="line">   vrrp_skip_check_adv_addr</span><br><span class="line">   #vrrp_strict</span><br><span class="line">   vrrp_garp_interval 0</span><br><span class="line">   vrrp_gna_interval 0</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h1 id="BUG2"><a href="#BUG2" class="headerlink" title="BUG2"></a>BUG2</h1><p>起始：给keepalived写了一个根据nginx是否关闭来终止keepalived的监控脚本，但是无法执行  ， 脚本代码本身没有问题</p><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line"><span class="meta prompt_">#</span><span class="language-bash">!/bin/bash</span></span><br><span class="line">echo &quot;start&quot;</span><br><span class="line">num=`ps -C nginx --no-header | wc -l`</span><br><span class="line">if [ $num -eq 0 ];then</span><br><span class="line"> killall keepalived</span><br><span class="line">fi</span><br><span class="line"></span><br></pre></td></tr></table></figure><p>脚本代码执行效果：</p><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@chenbaohui keepalived]# ps -ef | grep nginx</span><br><span class="line">root      13218   2611  0 00:19 pts/0    00:00:00 grep --color=auto nginx</span><br><span class="line">[root@chenbaohui keepalived]# ps -ef | grep keepalived </span><br><span class="line">root      12840      1  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      12841  12840  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      12842  12840  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      13220   2611  0 00:19 pts/0    00:00:00 grep --color=auto keepalived</span><br><span class="line">[root@chenbaohui keepalived]# bash ch_nginx.sh </span><br><span class="line">start</span><br><span class="line">[root@chenbaohui keepalived]# ps -ef | grep keepalived </span><br><span class="line">root      13260   2611  0 00:20 pts/0    00:00:00 grep --color=auto keepalived</span><br><span class="line"></span><br></pre></td></tr></table></figure><p>实际运行效果：</p><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@chenbaohui sbin]# ./nginx -s stop</span><br><span class="line">[root@chenbaohui sbin]# ps -ef | grep nginx</span><br><span class="line">root      12884   2611  0 00:00 pts/0    00:00:00 grep --color=auto nginx</span><br><span class="line">[root@chenbaohui sbin]# ps -ef | grep keepalived</span><br><span class="line">root      12840      1  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      12841  12840  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      12842  12840  0 Mar04 ?        00:00:00 /usr/local/sbin/keepalived</span><br><span class="line">root      12891   2611  0 00:01 pts/0    00:00:00 grep --color=auto keepalived</span><br></pre></td></tr></table></figure><p>解决方法：发现是自己粗心大意把keepalived.conf里面的配置脚本节点，<code>script &quot;/etc/keepalived/ch_nginx.sh&quot;</code>写成了<code>sript &quot;/etc/keepalived/ch_nginx.sh&quot;</code>，改回来就好了</p><figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">[root@chenbaohui sbin]# ps -ef | grep nginx</span><br><span class="line">root      13593      1  0 00:35 ?        00:00:00 nginx: master process ./nginx</span><br><span class="line">nobody    13594  13593  0 00:35 ?        00:00:00 nginx: worker process</span><br><span class="line">nobody    13595  13593  0 00:35 ?        00:00:00 nginx: worker process</span><br><span class="line">root      13688   2611  0 00:36 pts/0    00:00:00 grep --color=auto nginx</span><br><span class="line">[root@chenbaohui sbin]# ls</span><br><span class="line">nginx</span><br><span class="line">[root@chenbaohui sbin]# ./nginx -s stop</span><br><span class="line">[root@chenbaohui sbin]# ps -ef | grep nginx</span><br><span class="line">root      13977   2611  0 00:38 pts/0    00:00:00 grep --color=auto nginx</span><br><span class="line">[root@chenbaohui sbin]# ps -ef | grep keepalived</span><br><span class="line">root      13979   2611  0 00:38 pts/0    00:00:00 grep --color=auto keepalived</span><br><span class="line"></span><br></pre></td></tr></table></figure>]]></content>
+      
+      
+      <categories>
+          
+          <category> 编程日志 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Nginx </tag>
+            
+            <tag> Keepalived </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>整合openfeign和seata出现的Bug2025.2.28</title>
       <link href="/2025/03/01/Bug2025-2-28/"/>
       <url>/2025/03/01/Bug2025-2-28/</url>
